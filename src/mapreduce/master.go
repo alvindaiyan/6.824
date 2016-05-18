@@ -1,7 +1,10 @@
 package mapreduce
 
 import "container/list"
-import 	"fmt"
+import (
+	"fmt"
+	"log"
+)
 
 
 type WorkerInfo struct {
@@ -30,39 +33,56 @@ func (mr *MapReduce) KillWorkers() *list.List {
 
 func (mr *MapReduce) RunMaster() *list.List {
 	// Your code here
-	
 	// start mappers
-	startWorker := func(workerAddr string, idx int, jobArgs DoJobArgs) {
-		var reply DoJobReply
-		ok := call(workerAddr, "Worker.DoJob", jobArgs, &reply)
-		if ok {
-			mr.DoneChannel <- true
-			mr.registerChannel <- workerAddr
-		} else {
-			// todo not successful?
-		}
-	}
-
+	log.Println("nmap ", mr.nMap, "nreducer", mr.nReduce, len(mr.DoneChannel))
 	nextWorker := func() string {
 		return <-mr.registerChannel
 	}
 
+	startWorker := func(jobArgs DoJobArgs) {
+		for {
+			workerAddr := nextWorker()
+			fmt.Println("start new worker --> ", workerAddr)
+
+			var reply DoJobReply
+			ok := call(workerAddr, "Worker.DoJob", jobArgs, &reply)
+			if ok {
+				log.Println("------- worker finished work")
+				mr.DoneChannel <- true
+				mr.registerChannel <- workerAddr
+				break
+			}
+		}
+
+	}
+
+	startMapper := func(index int) {
+		fmt.Println("start mapper: ", index)
+		jobArg := DoJobArgs{mr.file, Map, index, mr.nReduce }
+		startWorker(jobArg)
+	}
+
+	startReducer := func(index int) {
+		jobArg := DoJobArgs{mr.file, Reduce, index, mr.nMap }
+		startWorker(jobArg)
+	}
+
 	// do the mappers
 	for i:= 0; i < mr.nMap; i++ {
-		workerAddr := nextWorker()
-		jobArg := DoJobArgs{mr.file, Map, i, mr.nReduce }
-		go startWorker(workerAddr, i, jobArg)
+		go startMapper(i)
 	}
 
 	// lock to wait mapper to finish
 	for i:=0; i < mr.nMap; i++ {
+		log.Println("mapper ------> ", i)
 		<- mr.DoneChannel
+		log.Println("mapper done ------> ", i)
 	}
+	log.Println("<--------- mapper is done ------> ")
+
 
 	for i:= 0; i < mr.nMap; i++ {
-		workerAddr := nextWorker()
-		jobArg := DoJobArgs{mr.file, Reduce, i, mr.nMap }
-		go startWorker(workerAddr, i, jobArg)
+		go startReducer(i)
 	}
 
 
@@ -70,6 +90,9 @@ func (mr *MapReduce) RunMaster() *list.List {
 	for i:=0; i < mr.nReduce; i++ {
 		<- mr.DoneChannel
 	}
+
+	log.Println("<--------- reducer is done ------> ")
+
 
 	return mr.KillWorkers()
 }
