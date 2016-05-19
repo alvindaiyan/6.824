@@ -34,22 +34,25 @@ func (mr *MapReduce) KillWorkers() *list.List {
 func (mr *MapReduce) RunMaster() *list.List {
 	// Your code here
 	// start mappers
-	log.Println("nmap ", mr.nMap, "nreducer", mr.nReduce, len(mr.DoneChannel))
+	done := make(chan string)
+
 	nextWorker := func() string {
-		return <-mr.registerChannel
+		var availableWorker string
+		select {
+		case availableWorker = <- mr.registerChannel:
+		case availableWorker = <- mr.availableWorkers:
+		}
+		return availableWorker
 	}
 
 	startWorker := func(jobArgs DoJobArgs) {
 		for {
 			workerAddr := nextWorker()
-			fmt.Println("start new worker --> ", workerAddr)
-
 			var reply DoJobReply
 			ok := call(workerAddr, "Worker.DoJob", jobArgs, &reply)
 			if ok {
-				log.Println("------- worker finished work")
-				mr.DoneChannel <- true
-				mr.registerChannel <- workerAddr
+				done <- workerAddr
+				mr.availableWorkers <- workerAddr
 				break
 			}
 		}
@@ -57,7 +60,6 @@ func (mr *MapReduce) RunMaster() *list.List {
 	}
 
 	startMapper := func(index int) {
-		fmt.Println("start mapper: ", index)
 		jobArg := DoJobArgs{mr.file, Map, index, mr.nReduce }
 		startWorker(jobArg)
 	}
@@ -74,25 +76,24 @@ func (mr *MapReduce) RunMaster() *list.List {
 
 	// lock to wait mapper to finish
 	for i:=0; i < mr.nMap; i++ {
-		log.Println("mapper ------> ", i)
-		<- mr.DoneChannel
-		log.Println("mapper done ------> ", i)
+		<- done
 	}
 	log.Println("<--------- mapper is done ------> ")
 
 
-	for i:= 0; i < mr.nMap; i++ {
+	for i:= 0; i < mr.nReduce; i++ {
 		go startReducer(i)
 	}
 
 
 	// wait for reducers to finish
 	for i:=0; i < mr.nReduce; i++ {
-		<- mr.DoneChannel
+		<- done
 	}
 
 	log.Println("<--------- reducer is done ------> ")
 
+	close(done)
 
 	return mr.KillWorkers()
 }
