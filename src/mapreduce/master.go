@@ -35,12 +35,13 @@ func (mr *MapReduce) RunMaster() *list.List {
 	// Your code here
 	// start mappers
 	done := make(chan string)
+	availableWorkers := make(chan string)
 
 	nextWorker := func() string {
 		var availableWorker string
 		select {
 		case availableWorker = <- mr.registerChannel:
-		case availableWorker = <- mr.availableWorkers:
+		case availableWorker = <- availableWorkers:
 		}
 		return availableWorker
 	}
@@ -52,7 +53,7 @@ func (mr *MapReduce) RunMaster() *list.List {
 			ok := call(workerAddr, "Worker.DoJob", jobArgs, &reply)
 			if ok {
 				done <- workerAddr
-				mr.availableWorkers <- workerAddr
+				availableWorkers <- workerAddr
 				break
 			}
 		}
