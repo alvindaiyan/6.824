@@ -41,7 +41,7 @@ func ReduceFunc(key string, values []string) string {
 	return ""
 }
 
-// Checks input file agaist output file: each input number should show up
+// Checks input file against output file: each input number should show up
 // in the output file in string sorted order
 func check(t *testing.T, files []string) {
 	output, err := os.Open("mrtmp.test")
@@ -81,7 +81,7 @@ func check(t *testing.T, files []string) {
 		i++
 	}
 	if i != nNumber {
-		t.Fatalf("Expected %d lines in output\n", nNumber)
+		t.Fatalf("Expected %d lines in output but have %d\n", nNumber, i)
 	}
 }
 

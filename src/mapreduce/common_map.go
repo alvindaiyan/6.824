@@ -49,7 +49,7 @@ func doMap(
 		log.Fatal(err)
 	}
 
-	mapResult := mapF(inFile, content)
+	mapResult := mapF(inFile, string(content))
 
 	for r := 0; r < nReduce; r++ {
 		reduceName := reduceName(jobName, mapTaskNumber, r)
@@ -62,7 +62,9 @@ func doMap(
 
 		enc := json.NewEncoder(file)
 		for _, kv := range mapResult {
-			if ihash(kv.Key) == r {
+			log.Println(kv.Key, "--->", kv.Value)
+			hash := int(ihash(kv.Key)) % nReduce
+			if hash == r {
 				err := enc.Encode(&kv)
 				if err != nil {
 					log.Fatal(err)

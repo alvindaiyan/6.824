@@ -1,7 +1,6 @@
 package mapreduce
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"encoding/json"
@@ -39,9 +38,10 @@ func doReduce(
 	// 	enc.Encode(KeyValue{key, reduceF(...)})
 	// }
 	// file.Close()
+	collection := make(map[string][]string)
+
 	for m := 0; m < nMap; m++ {
 		filename := reduceName(jobName, m, reduceTaskNumber)
-
 		file, err := os.Open(filename)
 		defer file.Close()
 		if err != nil {
@@ -50,10 +50,22 @@ func doReduce(
 
 		decoder := json.NewDecoder(file)
 		var kv KeyValue
-		for err := decoder.Decode(&kv); err != nil && err == io.EOF; {
+		for err := decoder.Decode(&kv); err != io.EOF; err = decoder.Decode(&kv){
+			collection[kv.Key] = append(collection[kv.Key], kv.Value)
 
 		}
-
-
 	}
+
+	mergeFile := mergeName(jobName, reduceTaskNumber)
+	reduceFile, err := os.Create(mergeFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	enc := json.NewEncoder(reduceFile)
+	for k, v := range collection {
+		enc.Encode(KeyValue{k, reduceF(k, v)})
+	}
+
+
 }
