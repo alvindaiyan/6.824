@@ -62,7 +62,7 @@ func doMap(
 
 		enc := json.NewEncoder(file)
 		for _, kv := range mapResult {
-			log.Println(kv.Key, "--->", kv.Value)
+			//log.Println(kv.Key, "--->", kv.Value)
 			hash := int(ihash(kv.Key)) % nReduce
 			if hash == r {
 				err := enc.Encode(&kv)
